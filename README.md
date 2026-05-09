@@ -9,7 +9,7 @@
     </a>
     <a href="https://github.com/yzh52521/easy-excel/releases" ><img src="https://img.shields.io/github/release/yzh52521/easy-excel.svg?color=4099DE" /></a> 
     <a href="https://packagist.org/packages/yzh52521/easy-excel"><img src="https://img.shields.io/packagist/dt/yzh52521/easy-excel.svg?color=" /></a> 
-    <a><img src="https://img.shields.io/badge/php-7.2+-59a9f8.svg?style=flat" /></a> 
+    <a><img src="https://img.shields.io/badge/php-8.2+-59a9f8.svg?style=flat" /></a> 
 </p>
 
 </div>
@@ -26,11 +26,11 @@
 
 ## 环境
 
-- PHP >= 7.2
+- PHP >= 8.2
 - PHP extension php_zip
 - PHP extension php_xmlreader
-- openspout/openspout >= 3.0
-- league/flysystem >= 1.0
+- openspout/openspout >= 4.0
+- league/flysystem >= 3.0
 
 
 ## 安装
