@@ -4,10 +4,14 @@ namespace Dcat\EasyExcel\Importers;
 
 use OpenSpout\Common\Exception\IOException;
 use OpenSpout\Common\Exception\UnsupportedTypeException;
-use OpenSpout\Reader\Common\Creator\ReaderFactory;
+use OpenSpout\Reader\CSV\Options as CsvOptions;
+use OpenSpout\Reader\CSV\Reader as CsvReader;
+use OpenSpout\Reader\ODS\Reader as OdsReader;
 use OpenSpout\Reader\ReaderInterface;
+use OpenSpout\Reader\XLSX\Reader as XlsxReader;
 use Dcat\EasyExcel\Contracts;
 use Dcat\EasyExcel\Contracts\Sheet as SheetInterface;
+use Dcat\EasyExcel\Excel as ExcelConstants;
 use Dcat\EasyExcel\Support\SheetCollection;
 use Dcat\EasyExcel\Support\Traits\Macroable;
 use Dcat\EasyExcel\Traits\Excel;
@@ -45,7 +49,7 @@ class Importer implements Contracts\Importer
     }
 
     /**
-     * @param  string|UploadedFile  $filePath
+     * @param string|UploadedFile $filePath
      * @return $this
      */
     public function file($filePath)
@@ -56,7 +60,7 @@ class Importer implements Contracts\Importer
     }
 
     /**
-     * @param  int|\Closure  $lineNumberOrCallback
+     * @param int|\Closure $lineNumberOrCallback
      * @return mixed
      */
     public function headingRow($lineNumberOrCallback)
@@ -95,7 +99,7 @@ class Importer implements Contracts\Importer
     /**
      * 根据名称或序号获取sheet.
      *
-     * @param  int|string  $indexOrName
+     * @param int|string $indexOrName
      * @return Contracts\Sheet
      *
      * @throws FileNotFoundException
@@ -132,7 +136,7 @@ class Importer implements Contracts\Importer
     }
 
     /**
-     * @param  callable  $callback
+     * @param callable $callback
      * @return $this
      *
      * @throws FileNotFoundException
@@ -194,7 +198,7 @@ class Importer implements Contracts\Importer
     }
 
     /**
-     * @param  \OpenSpout\Reader\ReaderInterface  $reader
+     * @param \OpenSpout\Reader\ReaderInterface $reader
      * @return \Generator
      *
      * @throws \OpenSpout\Reader\Exception\ReaderNotOpenedException
@@ -209,7 +213,7 @@ class Importer implements Contracts\Importer
     }
 
     /**
-     * @param  string|UploadedFile  $path
+     * @param string|UploadedFile $path
      * @return \OpenSpout\Reader\ReaderInterface
      *
      * @throws \OpenSpout\Common\Exception\UnsupportedTypeException
@@ -220,21 +224,45 @@ class Importer implements Contracts\Importer
         $extension = null;
         if ($path instanceof UploadedFile) {
             $extension = $path->guessClientExtension();
-            $path = $path->getRealPath();
+            $path      = $path->getRealPath();
         }
 
-        /* @var \OpenSpout\Reader\ReaderInterface $reader */
-        if ($this->type || $extension) {
-            $reader = ReaderFactory::createFromType($this->type ?: $extension);
-        } else {
-            $reader = ReaderFactory::createFromFile($path);
-        }
+        $type = $this->type ?: $extension ?: strtolower(pathinfo($path, PATHINFO_EXTENSION));
+
+        $reader = $this->createReaderByType($type);
 
         $reader->open($path);
 
         $this->configure($reader);
 
         return $this->reader = $reader;
+    }
+
+    /**
+     * @throws UnsupportedTypeException
+     */
+    protected function createReaderByType(string $type): ReaderInterface
+    {
+        $csvConfig = $this->getCsvConfiguration();
+
+        switch ($type) {
+            case ExcelConstants::CSV:
+                $options                  = new CsvOptions;
+                $options->FIELD_DELIMITER = $csvConfig['delimiter'];
+                $options->FIELD_ENCLOSURE = $csvConfig['enclosure'];
+                $options->ENCODING        = $csvConfig['encoding'];
+
+                return new CsvReader($options);
+
+            case ExcelConstants::XLSX:
+                return new XlsxReader;
+
+            case ExcelConstants::ODS:
+                return new OdsReader;
+
+            default:
+                throw new UnsupportedTypeException('No readers supporting the given type: ' . $type);
+        }
     }
 
     /**

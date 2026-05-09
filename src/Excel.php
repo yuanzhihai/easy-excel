@@ -2,7 +2,6 @@
 
 namespace Dcat\EasyExcel;
 
-use OpenSpout\Common\Type;
 use Dcat\EasyExcel\Exporters\Exporter;
 use Dcat\EasyExcel\Exporters\Sheet;
 use Dcat\EasyExcel\Importers\Importer;
@@ -10,9 +9,9 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 class Excel
 {
-    const XLSX = Type::XLSX;
-    const CSV = Type::CSV;
-    const ODS = Type::ODS;
+    const XLSX = 'xlsx';
+    const CSV = 'csv';
+    const ODS = 'ods';
 
     /**
      * 导入.

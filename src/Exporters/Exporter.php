@@ -3,9 +3,14 @@
 namespace Dcat\EasyExcel\Exporters;
 
 use OpenSpout\Common\Entity\Style\Style;
+use OpenSpout\Common\Exception\UnsupportedTypeException;
+use OpenSpout\Writer\CSV\Options as CsvOptions;
+use OpenSpout\Writer\CSV\Writer as CsvWriter;
+use OpenSpout\Writer\ODS\Writer as OdsWriter;
 use OpenSpout\Writer\WriterInterface;
+use OpenSpout\Writer\XLSX\Writer as XlsxWriter;
 use Dcat\EasyExcel\Contracts;
-use Dcat\EasyExcel\Spout\WriterFactory;
+use Dcat\EasyExcel\Excel as ExcelConstants;
 use Dcat\EasyExcel\Support\Traits\Macroable;
 use Dcat\EasyExcel\Traits\Excel;
 
@@ -65,7 +70,7 @@ class Exporter implements Contracts\Exporter
      *    ];
      * });
      *
-     * @param  array|\Closure|\Generator|Contracts\Exporters\ChunkQuery  $data
+     * @param array|\Closure|\Generator|Contracts\Exporters\ChunkQuery $data
      * @return $this
      */
     public function data($data)
@@ -80,7 +85,7 @@ class Exporter implements Contracts\Exporter
     }
 
     /**
-     * @param  callable  $callback
+     * @param callable $callback
      * @return $this
      */
     public function row(callable $callback)
@@ -91,7 +96,7 @@ class Exporter implements Contracts\Exporter
     }
 
     /**
-     * @param  Style  $style
+     * @param Style $style
      * @return $this
      */
     public function headingStyle($style)
@@ -120,7 +125,7 @@ class Exporter implements Contracts\Exporter
      *     }
      * ]);
      *
-     * @param  callable|callable[]  $callbacks
+     * @param callable|callable[] $callbacks
      * @return $this
      */
     public function chunk($callbacks)
@@ -131,13 +136,13 @@ class Exporter implements Contracts\Exporter
     /**
      * 下载导出文件.
      *
-     * @param  string|null  $fileName
+     * @param string|null $fileName
      * @return void
      */
     public function download(string $fileName)
     {
         try {
-            /* @var \Box\Spout\Writer\WriterInterface $writer */
+            /* @var \OpenSpout\Writer\WriterInterface $writer */
             $writer = $this->makeWriter($fileName);
 
             $writer->openToBrowser($this->prepareFileName($fileName));
@@ -158,13 +163,13 @@ class Exporter implements Contracts\Exporter
      * @param array $diskConfig
      * @return bool|null
      * @throws \League\Flysystem\FilesystemException
-     * @throws \Throwable
+     * @throws \OpenSpout\Common\Exception\IOException
      */
     public function store(string $filePath, array $diskConfig = [])
     {
         try {
             $filePath = $this->prepareFileName($filePath);
-            if (! ($filesystem = $this->filesystem())) {
+            if (!($filesystem = $this->filesystem())) {
                 return $this->storeInLocal($filePath);
             }
             if (empty($this->type)) {
@@ -190,18 +195,23 @@ class Exporter implements Contracts\Exporter
      */
     public function raw()
     {
+        $tempFile = sys_get_temp_dir() . '/' . uniqid('excel_') . '.' . ($this->type ?: ExcelConstants::XLSX);
+
         try {
             /* @var \OpenSpout\Writer\WriterInterface $writer */
-            $writer = $this->makeWriter();
-
-            ob_start();
-
-            $writer->openToOutput();
+            $writer = $this->makeWriter($tempFile);
+            $writer->openToFile($tempFile);
 
             $this->writeSheets($writer)->close();
 
-            return ob_get_clean();
+            $content = file_get_contents($tempFile);
+
+            @unlink($tempFile);
+
+            return $content;
         } catch (\Throwable $e) {
+            @unlink($tempFile);
+
             $this->releaseResources();
 
             throw $e;
@@ -209,7 +219,7 @@ class Exporter implements Contracts\Exporter
     }
 
     /**
-     * @param  string  $filePath
+     * @param string $filePath
      * @return bool
      *
      * @throws \OpenSpout\Common\Exception\IOException|\OpenSpout\Writer\Exception\WriterNotOpenedException
@@ -227,24 +237,45 @@ class Exporter implements Contracts\Exporter
     }
 
     /**
-     * @param  string  $path
-     * @param  string  $factory
-     * @return WriterInterface
+     * @param string|null $path
+     * @throws UnsupportedTypeException
      */
-    protected function makeWriter(?string $path = null, string $factory = null)
+    protected function makeWriter(?string $path = null)
     {
-        $factory = $factory ?: WriterFactory::class;
+        $type = $this->type ?: ($path ? strtolower(pathinfo($path, PATHINFO_EXTENSION)) : ExcelConstants::XLSX);
 
-        /* @var WriterInterface $writer */
-        if ($this->type) {
-            $writer = $factory::createFromType($this->type);
-        } else {
-            $writer = $factory::createFromFile($path);
-        }
+        $writer = $this->createWriterByType($type);
 
         $this->configure($writer);
 
         return $this->writer = $writer;
+    }
+
+    /**
+     * @throws UnsupportedTypeException
+     */
+    protected function createWriterByType(string $type): WriterInterface
+    {
+        $csvConfig = $this->getCsvConfiguration();
+
+        switch ($type) {
+            case ExcelConstants::CSV:
+                $options                  = new CsvOptions;
+                $options->FIELD_DELIMITER = $csvConfig['delimiter'];
+                $options->FIELD_ENCLOSURE = $csvConfig['enclosure'];
+                $options->SHOULD_ADD_BOM  = $csvConfig['bom'];
+
+                return new CsvWriter($options);
+
+            case ExcelConstants::XLSX:
+                return new XlsxWriter;
+
+            case ExcelConstants::ODS:
+                return new OdsWriter;
+
+            default:
+                throw new UnsupportedTypeException('No writers supporting the given type: ' . $type);
+        }
     }
 
     /**
@@ -262,7 +293,7 @@ class Exporter implements Contracts\Exporter
      */
     protected function removeHttpHeaders()
     {
-        if (! headers_sent()) {
+        if (!headers_sent()) {
             header_remove();
         }
     }

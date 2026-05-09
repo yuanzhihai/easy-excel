@@ -2,9 +2,9 @@
 
 namespace Tests\Exporters\XLSX;
 
+use OpenSpout\Common\Entity\Row;
 use OpenSpout\Common\Entity\Style\Color;
-use OpenSpout\Writer\Common\Creator\Style\StyleBuilder;
-use OpenSpout\Writer\Common\Creator\WriterEntityFactory;
+use OpenSpout\Common\Entity\Style\Style;
 use Dcat\EasyExcel\Excel;
 use Dcat\EasyExcel\Support\SheetCollection;
 use Tests\Exporters\Exporter;
@@ -23,21 +23,19 @@ class WithSheetTest extends TestCase
 
         $storePath = $this->generateTempFilePath('xlsx');
 
+        $headingStyle = new Style;
+        $headingStyle->setFontColor(Color::BLUE);
+        $headingStyle->setFontSize(14);
+
         $sheet = Excel::createSheet($users)
             ->name('test')
-            ->headingStyle(
-                (new StyleBuilder)
-                    ->setFontColor(Color::BLUE)
-                    ->setFontSize(14)
-                    ->build()
-            )
+            ->headingStyle($headingStyle)
             ->row(function (array $row) {
-                $style = (new StyleBuilder)
-                    ->setFontColor(Color::PURPLE)
-                    ->setFontSize(14)
-                    ->build();
+                $style = new Style;
+                $style->setFontColor(Color::rgb(128, 0, 128)); // Purple
+                $style->setFontSize(14);
 
-                return WriterEntityFactory::createRowFromArray($row, $style);
+                return Row::fromValues($row, $style);
             });
 
         // 保存

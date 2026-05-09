@@ -2,15 +2,13 @@
 
 namespace Dcat\EasyExcel\Traits;
 
-use OpenSpout\Common\Entity\Style\Style;
-use OpenSpout\Common\Type;
-use OpenSpout\Reader\CSV\Reader as CSVReader;
-use OpenSpout\Writer\CSV\Writer as CSVWriter;
+use Dcat\EasyExcel\Excel as ExcelConstants;
 use Dcat\EasyExcel\Support\SheetCollection;
 use yzh52521\filesystem\Filesystem as ThinkFilesystem;
 use yzh52521\filesystem\facade\Filesystem;
 use League\Flysystem\FilesystemInterface;
 use League\Flysystem\FilesystemOperator;
+use OpenSpout\Common\Entity\Style\Style;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 trait Excel
@@ -115,7 +113,7 @@ trait Excel
      */
     public function csv()
     {
-        return $this->type(Type::CSV);
+        return $this->type(ExcelConstants::CSV);
     }
 
     /**
@@ -123,7 +121,7 @@ trait Excel
      */
     public function ods()
     {
-        return $this->type(Type::ODS);
+        return $this->type(ExcelConstants::ODS);
     }
 
     /**
@@ -131,7 +129,7 @@ trait Excel
      */
     public function xlsx()
     {
-        return $this->type(Type::XLSX);
+        return $this->type(ExcelConstants::XLSX);
     }
 
     /**
@@ -200,22 +198,14 @@ trait Excel
      */
     protected function configure(&$readerOrWriter)
     {
-        if ($readerOrWriter instanceof CSVReader || $readerOrWriter instanceof CSVWriter) {
-            $readerOrWriter->setFieldDelimiter($this->csvConfiguration['delimiter']);
-            $readerOrWriter->setFieldEnclosure($this->csvConfiguration['enclosure']);
-
-            if ($readerOrWriter instanceof CSVReader) {
-                $readerOrWriter->setEncoding($this->csvConfiguration['encoding']);
-            }
-
-            if ($readerOrWriter instanceof CSVWriter) {
-                $readerOrWriter->setShouldAddBOM($this->csvConfiguration['bom']);
-            }
-        }
-
         if ($this->optionCallback) {
             ($this->optionCallback)($readerOrWriter);
         }
+    }
+
+    public function getCsvConfiguration(): array
+    {
+        return $this->csvConfiguration;
     }
 
     /**
